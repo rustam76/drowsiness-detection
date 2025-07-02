@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Drowsiness Detection System</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+            padding: 30px;
+        }
+        
+        .video-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            background: #000;
+        }
+        
+        .video-feed {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .status-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .alert-drowsy {
+            background: rgba(220, 53, 69, 0.9) !important;
+            animation: pulse 1s infinite;
+        }
+        
+        .alert-awake {
+            background: rgba(40, 167, 69, 0.9) !important;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .stat-card {
+            background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .btn-custom {
+            border-radius: 25px;
+            padding: 12px 30px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .progress-custom {
+            height: 20px;
+            border-radius: 10px;
+            background: #e9ecef;
+        }
+        
+        .progress-bar-custom {
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .history-item {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .history-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .history-drowsy {
+            border-left-color: #dc3545;
+        }
+        
+        .history-alert {
+            border-left-color: #28a745;
+        }
+        
+        .navbar-custom {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border: none;
+        }
+        
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-eye me-2"></i>
+                Drowsiness Detection System
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text">
+                    <i class="fas fa-circle text-success me-1"></i>
+                    System Active
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Main Content -->
+        <div class="main-container">
+            <div class="row">
+                <!-- Video Feed Section -->
+                <div class="col-lg-8">
+                    <div class="card stat-card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-video me-2"></i>
+                                Live Video Feed
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="video-container">
+                                <img src="/video_feed" class="video-feed" alt="Video Feed">
+                                <div class="status-overlay" id="statusOverlay">
+                                    <i class="fas fa-eye me-2"></i>
+                                    <span id="currentStatus">Ready</span>
+                                </div>
+                                <div class="loading-spinner">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="card stat-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-center gap-3">
+                                <button class="btn btn-success btn-custom" id="startBtn">
+                                    <i class="fas fa-play me-2"></i>Start Detection
+                                </button>
+                                <button class="btn btn-danger btn-custom" id="stopBtn" disabled>
+                                    <i class="fas fa-stop me-2"></i>Stop Detection
+                                </button>
+                                <button class="btn btn-warning btn-custom" id="resetBtn">
+                                    <i class="fas fa-refresh me-2"></i>Reset Stats
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Section -->
+                <div class="col-lg-4">
+                    <!-- Real-time Stats -->
+                    <div class="card stat-card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Real-time Statistics
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-6 mb-3">
+                                    <div class="bg-light p-3 rounded">
+                                        <h4 class="text-primary mb-1" id="totalDetections">0</h4>
+                                        <small class="text-muted">Total Detections</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="bg-light p-3 rounded">
+                                        <h4 class="text-danger mb-1" id="drowsyCount">0</h4>
+                                        <small class="text-muted">Drowsy Alerts</small>
+                                    </div>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label small">Drowsiness Level</label>
+                                    <div class="progress progress-custom">
+                                        <div class="progress-bar progress-bar-custom bg-success" 
+                                             id="drowsinessBar" role="progressbar" style="width: 0%">
+                                            <span id="drowsinessPercent">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted">
+                                        Last Update: <span id="lastUpdate">Never</span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert Settings -->
+                    <div class="card stat-card mb-4">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0">
+                                <i class="fas fa-cog me-2"></i>
+                                Alert Settings
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="alertThreshold" class="form-label">Alert Threshold</label>
+                                <input type="range" class="form-range" id="alertThreshold" 
+                                       min="5" max="30" value="10">
+                                <div class="d-flex justify-content-between">
+                                    <small>5</small>
+                                    <small id="thresholdValue">10</small>
+                                    <small>30</small>
+                                </div>
+                            </div>
+                            <div class="alert alert-info py-2">
+                                <small>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Number of consecutive drowsy frames to trigger alert
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detection History -->
+                    <div class="card stat-card">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-history me-2"></i>
+                                Recent Activity
+                            </h6>
+                        </div>
+                        <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                            <div id="historyContainer">
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-clock me-2"></i>
+                                    No activity yet
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card stat-card">
+                        <div class="card-header bg-dark text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-area me-2"></i>
+                                Detection Trends
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div class="modal fade" id="alertModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Drowsiness Alert!
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-bed fa-5x text-danger"></i>
+                    </div>
+                    <h4>Driver Drowsiness Detected!</h4>
+                    <p class="text-muted">Please take a break or pull over safely.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Dismiss</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Global variables
+        let detectionActive = false;
+        let statsInterval;
+        let chart;
+        let alertShown = false;
+        let chartData = {
+            labels: [],
+            drowsyData: [],
+            alertData: []
+        };
+
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Drowsy Detections',
+                        data: [],
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Alert Detections',
+                        data: [],
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Detections'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update chart data
+        function updateChart(drowsyCount, alertCount) {
+            const now = new Date();
+            const timeLabel = now.toLocaleTimeString();
+            
+            chartData.labels.push(timeLabel);
+            chartData.drowsyData.push(drowsyCount);
+            chartData.alertData.push(alertCount);
+            
+            // Keep only last 20 data points
+            if (chartData.labels.length > 20) {
+                chartData.labels.shift();
+                chartData.drowsyData.shift();
+                chartData.alertData.shift();
+            }
+            
+            chart.data.labels = chartData.labels;
+            chart.data.datasets[0].data = chartData.drowsyData;
+            chart.data.datasets[1].data = chartData.alertData;
+            chart.update('none');
+        }
+
+        // Update statistics
+        function updateStats() {
+            fetch('/get_stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalDetections').textContent = data.total_detections;
+                    document.getElementById('drowsyCount').textContent = data.drowsy_count;
+                    document.getElementById('lastUpdate').textContent = data.last_detection;
+                    
+                    // Update drowsiness bar
+                    const percentage = data.drowsy_percentage;
+                    const bar = document.getElementById('drowsinessBar');
+                    const percentText = document.getElementById('drowsinessPercent');
+                    
+                    bar.style.width = percentage + '%';
+                    percentText.textContent = percentage.toFixed(1) + '%';
+                    
+                    // Change color based on percentage
+                    bar.className = 'progress-bar progress-bar-custom';
+                    if (percentage < 30) {
+                        bar.classList.add('bg-success');
+                    } else if (percentage < 60) {
+                        bar.classList.add('bg-warning');
+                    } else {
+                        bar.classList.add('bg-danger');
+                    }
+                    
+                    // Update chart
+                    updateChart(data.drowsy_detections, data.alert_detections);
+                    
+                    // Show alert if threshold reached
+                    if (data.alert_triggered && !alertShown && detectionActive) {
+                        showDrowsinessAlert();
+                        alertShown = true;
+                    } else if (!data.alert_triggered) {
+                        alertShown = false;
+                    }
+                    
+                    // Update status overlay
+                    updateStatusOverlay(data);
+                })
+                .catch(error => console.error('Error updating stats:', error));
+        }
+
+        // Update status overlay
+        function updateStatusOverlay(data) {
+            const overlay = document.getElementById('statusOverlay');
+            const status = document.getElementById('currentStatus');
+            
+            if (data.alert_triggered) {
+                status.textContent = 'DROWSY ALERT!';
+                overlay.className = 'status-overlay alert-drowsy';
+            } else if (data.total_detections > 0) {
+                status.textContent = 'ALERT & AWAKE';
+                overlay.className = 'status-overlay alert-awake';
+            } else {
+                status.textContent = detectionActive ? 'Detecting...' : 'Ready';
+                overlay.className = 'status-overlay';
+            }
+        }
+
+        // Update history
+        function updateHistory() {
+            fetch('/get_history')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('historyContainer');
+                    
+                    if (data.history.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center text-muted">
+                                <i class="fas fa-clock me-2"></i>
+                                No activity yet
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = data.history.reverse().map(item => `
+                        <div class="history-item ${item.status === 'DROWSY' ? 'history-drowsy' : 'history-alert'}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong class="${item.status === 'DROWSY' ? 'text-danger' : 'text-success'}">
+                                        ${item.status}
+                                    </strong>
+                                    <small class="text-muted d-block">
+                                        Confidence: ${(item.confidence * 100).toFixed(1)}%
+                                    </small>
+                                </div>
+                                <small class="text-muted">${item.timestamp}</small>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(error => console.error('Error updating history:', error));
+        }
+
+        // Show drowsiness alert
+        function showDrowsinessAlert() {
+            const alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+            alertModal.show();
+            
+            // Play alert sound (if available)
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhDVGl4fCzaOEdBzuW2O/Id6CJAT2XzPOz');
+                audio.play();
+            } catch (e) {
+                console.log('Audio not available');
+            }
+        }
+
+        // Update alert threshold value display
+        function updateThresholdDisplay() {
+            const slider = document.getElementById('alertThreshold');
+            const display = document.getElementById('thresholdValue');
+            display.textContent = slider.value;
+            
+            // Send to server
+            fetch('/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    alert_threshold: parseInt(slider.value)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Settings updated:', data);
+            })
+            .catch(error => console.error('Error updating settings:', error));
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', function() {
+            fetch('/start_detection', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    detectionActive = true;
+                    this.disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    
+                    // Start updating stats
+                    statsInterval = setInterval(() => {
+                        updateStats();
+                        updateHistory();
+                    }, 1000);
+                    
+                    console.log('Detection started');
+                })
+                .catch(error => console.error('Error starting detection:', error));
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', function() {
+            fetch('/stop_detection', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    detectionActive = false;
+                    this.disabled = true;
+                    document.getElementById('startBtn').disabled = false;
+                    
+                    // Stop updating stats
+                    if (statsInterval) {
+                        clearInterval(statsInterval);
+                    }
+                    
+                    // Reset status
+                    document.getElementById('currentStatus').textContent = 'Stopped';
+                    document.getElementById('statusOverlay').className = 'status-overlay';
+                    
+                    console.log('Detection stopped');
+                })
+                .catch(error => console.error('Error stopping detection:', error));
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset all statistics?')) {
+                fetch('/reset_stats', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Reset UI elements
+                        document.getElementById('totalDetections').textContent = '0';
+                        document.getElementById('drowsyCount').textContent = '0';
+                        document.getElementById('lastUpdate').textContent = 'Never';
+                        document.getElementById('drowsinessBar').style.width = '0%';
+                        document.getElementById('drowsinessPercent').textContent = '0%';
+                        
+                        // Clear chart
+                        chartData = { labels: [], drowsyData: [], alertData: [] };
+                        chart.data.labels = [];
+                        chart.data.datasets[0].data = [];
+                        chart.data.datasets[1].data = [];
+                        chart.update();
+                        
+                        // Clear history
+                        document.getElementById('historyContainer').innerHTML = `
+                            <div class="text-center text-muted">
+                                <i class="fas fa-clock me-2"></i>
+                                No activity yet
+                            </div>
+                        `;
+                        
+                        console.log('Statistics reset');
+                    })
+                    .catch(error => console.error('Error resetting stats:', error));
+            }
+        });
+
+        // Alert threshold slider
+        document.getElementById('alertThreshold').addEventListener('input', updateThresholdDisplay);
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            
+            // Load current settings
+            fetch('/settings')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('alertThreshold').value = data.alert_threshold;
+                    document.getElementById('thresholdValue').textContent = data.alert_threshold;
+                })
+                .catch(error => console.error('Error loading settings:', error));
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && statsInterval) {
+                clearInterval(statsInterval);
+            } else if (!document.hidden && detectionActive) {
+                statsInterval = setInterval(() => {
+                    updateStats();
+                    updateHistory();
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>
