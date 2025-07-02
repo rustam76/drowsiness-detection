@@ -484,10 +484,10 @@
             const status = document.getElementById('currentStatus');
             
             if (data.alert_triggered) {
-                status.textContent = 'DROWSY ALERT!';
+                status.textContent = 'KANTUK TERDETEKSI!';
                 overlay.className = 'status-overlay alert-drowsy';
             } else if (data.total_detections > 0) {
-                status.textContent = 'ALERT & AWAKE';
+                status.textContent = 'TERJAGA';
                 overlay.className = 'status-overlay alert-awake';
             } else {
                 status.textContent = detectionActive ? 'Detecting...' : 'Ready';
