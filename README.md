@@ -11,6 +11,7 @@ my-python-project/
 ├── venv/               # Virtual environment directory
 ├── templates/          # Your html file
 ├── app.py              # Your main Python file
+├── train_model.py      # Your Training model
 ├── requirements.txt    # List of dependencies
 └── README.md           # This file
 ```
@@ -29,8 +30,8 @@ my-python-project/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/my-python-project.git
-cd my-python-project
+git clone https://github.com/rustam76/drowsiness-detection.git
+cd drowsiness-detection
 ```
 
 ### 2. Create Virtual Environment
